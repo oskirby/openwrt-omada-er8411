@@ -1,0 +1,602 @@
+// SPDX-License-Identifier: (GPL-2.0-or-later OR MIT)
+/*
+ * Copyright (C) 2025 Naomi Kirby
+ *
+ * Device tree for the TP-Link Omada ER8411v1
+ */
+
+#include "cn9130.dtsi"
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+/ {
+	model = "TP-Link ER8411 v1";
+	compatible = "tplink,er8411-v1",
+		     "marvell,armada-ap807-quad", "marvell,armada-ap807";
+
+	chosen {
+		stdout-path = "serial1:115200n8";
+
+		// The ER8411 bootloader manages dual boot partitions for recovery mode,
+		// but OpenWRT only boots correctly from the primary slot. Override the
+		// bootargs to ensure this is the case.
+		bootargs-override = "console=ttyS1,115200 earlycon=uart8250,mmio32,0xf2702200 ubi.mtd=firmware,2048";
+	};
+
+	aliases {
+		gpio1 = &cp0_gpio1;
+		gpio2 = &cp0_gpio2;
+		gpio3 = &cp1_gpio1;
+		gpio4 = &cp1_gpio2;
+		i2c0 = &cp1_i2c0;
+		ethernet0 = &cp0_eth0;
+		ethernet1 = &cp0_eth1;
+		ethernet2 = &cp0_eth2;
+		ethernet3 = &cp1_eth0;
+		ethernet4 = &cp1_eth1;
+		spi1 = &cp0_spi0;
+		spi2 = &cp0_spi1;
+		serial1 = &cp0_uart2;
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x0 0x0 0x80000000>;
+	};
+
+	cp0_reg_usb3_vbus0: cp0_usb3_vbus@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "cp0-xhci0-vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+		//gpio = <&expander0 0 GPIO_ACTIVE_HIGH>;
+	};
+
+	cp0_usb3_0_phy0: cp0_usb3_phy0 {
+		compatible = "usb-nop-xceiv";
+		vcc-supply = <&cp0_reg_usb3_vbus0>;
+	};
+
+	cp0_reg_usb3_vbus1: cp0_usb3_vbus@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "cp0-xhci1-vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+		//gpio = <&expander0 1 GPIO_ACTIVE_HIGH>;
+	};
+
+	cp0_usb3_0_phy1: cp0_usb3_phy1 {
+		compatible = "usb-nop-xceiv";
+		vcc-supply = <&cp0_reg_usb3_vbus1>;
+	};
+
+	cp0_sfp_eth0: sfp-eth0 {
+		compatible = "sff,sfp";
+		i2c-bus = <&cp0_sfpp0_i2c>;
+		los-gpios = <&cp0_module_expander1 11 GPIO_ACTIVE_HIGH>;
+		mod-def0-gpios = <&cp0_module_expander1 10 GPIO_ACTIVE_LOW>;
+		tx-disable-gpios = <&cp0_module_expander1 9 GPIO_ACTIVE_HIGH>;
+		tx-fault-gpios = <&cp0_module_expander1 8 GPIO_ACTIVE_HIGH>;
+		/*
+		 * SFP cages are unconnected on early PCBs because of an the I2C
+		 * lanes not being connected. Prevent the port for being
+		 * unusable by disabling the SFP node.
+		 */
+		status = "disabled";
+	};
+
+	cp1_reg_usb3_vbus0: regulator-6 {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+		pinctrl-0 = <&cp1_xhci0_vbus_pins>;
+		regulator-name = "cp1-xhci0-vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+		gpio = <&cp1_gpio1 3 GPIO_ACTIVE_HIGH>;
+	};
+
+	cp1_usb3_0_phy0: usb-phy-3 {
+		compatible = "usb-nop-xceiv";
+		vcc-supply = <&cp1_reg_usb3_vbus0>;
+	};
+
+	cp1_reg_usb3_vbus1: cp1_usb3_vbus@1 {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+		pinctrl-0 = <&cp1_xhci1_vbus_pins>;
+		regulator-name = "cp1-xhci1-vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+		gpio = <&cp1_gpio1 14 GPIO_ACTIVE_HIGH>;
+	};
+
+	cp1_usb3_0_phy1: cp1_usb3_phy1 {
+		compatible = "usb-nop-xceiv";
+		vcc-supply = <&cp1_reg_usb3_vbus1>;
+	};
+
+	cp1_sfp_eth0: sfp-eth0 {
+		compatible = "sff,sfp";
+		i2c-bus = <&cp1_i2c0>;
+		los-gpio = <&cp1_gpio1 18 GPIO_ACTIVE_HIGH>;
+		mod-def0-gpio = <&cp1_gpio1 17 GPIO_ACTIVE_LOW>;
+		tx-disable-gpio = <&cp1_gpio1 16 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cp1_sfp_pins>;
+		status = "disabled";
+	};
+
+	cp1_sfp_eth1: sfp-eth-2 {
+		compatible = "sff,sfp";
+		i2c-bus = <&cp1_i2c0>;
+		los-gpios = <&cp1_gpio1 11 GPIO_ACTIVE_HIGH>;
+		mod-def0-gpios = <&cp1_gpio1 10 GPIO_ACTIVE_LOW>;
+		tx-disable-gpios = <&cp1_gpio1 9 GPIO_ACTIVE_HIGH>;
+		tx-fault-gpios = <&cp1_gpio1 8 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cp1_sfp_pins>;
+		/*
+		 * SFP cages are unconnected on early PCBs because of an the I2C
+		 * lanes not being connected. Prevent the port for being
+		 * unusable by disabling the SFP node.
+		 */
+		status = "disabled";
+	};
+
+	gpio-leds {
+		compatible = "gpio-leds";
+
+		sys-led {
+			label = "SYS_LED";
+			gpios = <&cp0_gpio2 30 GPIO_ACTIVE_LOW>;
+			default-state = "keep";
+			linux,default-trigger = "none";
+			retain-state-suspended;
+		};
+		lan-led {
+			label = "LAN_LED_0";
+			gpios = <&cp1_gpio1 0 GPIO_ACTIVE_LOW>;
+			default-state = "keep";
+			linux,default-trigger = "none";
+			retain-state-suspended;
+		};
+		lan-led1 {
+			label = "LAN_LED_1";
+			gpios = <&cp1_gpio1 11 GPIO_ACTIVE_LOW>;
+			default-state = "keep";
+			linux,default-trigger = "none";
+			retain-state-suspended;
+		};
+		usb-storage-led {
+			label = "USB_STORAGE_LED";
+			gpios = <&cp0_gpio1 2 GPIO_ACTIVE_LOW>;
+			default-state = "keep";
+		};
+		usb-lte-led {
+			label = "USB_LTE_LED";
+			gpios = <&cp1_gpio1 7 GPIO_ACTIVE_LOW>;
+			default-state = "keep";
+		};
+		fan-normal-led {
+			label = "FAN_NORMAL_LED";
+			gpios = <&cp1_gpio1 8 GPIO_ACTIVE_LOW>;
+			default-state = "keep";
+		};
+		fan-error-led {
+			label = "FAN_ERROR_LED";
+			gpios = <&cp0_gpio1 10 GPIO_ACTIVE_LOW>;
+			default-state = "keep";
+		};
+	};
+
+	keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&cp0_button_pin>;
+
+		reset {
+			label = "Reset";
+			linux,code = <KEY_RESTART>;
+			gpios = <&cp0_gpio1 4 GPIO_ACTIVE_LOW>;
+		};
+	};
+};
+
+/*
+ * CP related configuration
+ */
+&cp0_ethernet {
+	status = "okay";
+};
+
+/* SLM-1521-V2, CON9 */
+&cp0_eth0 {
+	status = "okay";
+	phy-mode = "10gbase-kr";
+	dev-name = "dpdk0";
+	/* Generic PHY, providing serdes lanes */
+	phys = <&cp0_comphy4 0>;
+	phy = <&mvsw6193>;
+	fixed-link {
+		speed = <10000>;
+		full-duplex;
+	};
+};
+
+/* CON56 */
+&cp0_eth1 {
+	status = "okay";
+	phy-mode = "2500base-x";
+	/* Generic PHY, providing serdes lanes */
+	phys = <&cp0_comphy0 1>;
+	managed = "in-band-status";
+	/* sfp = <&cp0_sfp_eth0>; */
+	dev-name = "dpdk2";
+};
+
+/* CON57 */
+&cp0_eth2 {
+	status = "okay";
+	phy-mode = "2500base-x";
+	/* Generic PHY, providing serdes lanes */
+	phys = <&cp0_comphy1 2>;
+	managed = "in-band-status";
+	/* sfp = <&cp0_sfp_eth0>; */
+	dev-name = "kern0";
+};
+
+&cp0_eth2 {
+	status = "okay";
+	phy-mode = "2500base-x";
+	/* Generic PHY, providing serdes lanes */
+	phys = <&cp0_comphy1 2>;
+	managed = "in-band-status";
+	/* sfp = <&cp0_sfp_eth0>; */
+	dev-name = "kern0";
+};
+
+&cp0_i2c1 {
+	status = "okay";
+	clock-frequency = <100000>;
+
+	/* SLM-1521-V2 - U3 */
+	i2c-mux@72 { /* verify address - depends on dpr */
+		compatible = "nxp,pca9544";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x72>;
+		cp0_sfpp0_i2c: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			/* U12 */
+			cp0_module_expander1: pca9555@21 {
+				compatible = "nxp,pca9555";
+				pinctrl-names = "default";
+				gpio-controller;
+				#gpio-cells = <2>;
+				reg = <0x21>;
+			};
+
+		};
+	};
+};
+
+&cp0_mdio {
+	status = "okay";
+	mvsw6193: switch@0{
+		compatible = "marvell,mv88e6190";
+		status = "okay";
+
+		cpu-port-0 = <9>;
+		reg = <0>;
+	};
+};
+
+/* U54 */
+&cp0_nand_controller {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&nand_pins &nand_rb>;
+
+	nand@0 {
+		reg = <0>;
+		label = "main-storage";
+		nand-rb = <0>;
+		nand-ecc-mode = "hw";
+		nand-on-flash-bbt;
+		nand-ecc-strength = <4>;
+		nand-ecc-step-size = <512>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "firmware";
+				compatible = "linux,ubi";
+				reg = <0 0xfc00000>;
+			};
+
+			partition@fc00000 {
+				label = "panic-oops";
+				reg = <0xfc00000 0x400000>;
+			};
+		};
+	};
+};
+
+&cp0_spi0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&cp0_spi0_pins>;
+	reg = <0x700600 0x50>,		/* control */
+	      <0x2000000 0x1000000>;	/* CS0 */
+
+	spi-flash@0 {
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		compatible = "jedec,spi-nor";
+		reg = <0x0>;
+		/* On-board MUX does not allow higher frequencies */
+		spi-max-frequency = <40000000>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "u-boot";
+				reg = <0x0 0x200000>;
+			};
+
+			partition@200000 {
+				label = "u-boot-backup";
+				reg = <0x200000 0x1f0000>;
+			};
+
+			partition@3f0000 {
+				label = "u-boot-env";
+				reg = <0x3f0000 0x10000>;
+			};
+		};
+	};
+};
+
+&cp0_syscon0 {
+	cp0_pinctrl: pinctrl {
+		compatible = "marvell,cp115-standalone-pinctrl";
+
+		cp0_uart2_pins: cp0-uart-pins-0 {
+			marvell,pins = "mpp37", "mpp38"; /* RX and TX MPP IDs for CP0 UART0 */
+			marvell,function = "uart2"; /* UART0 function number */
+		};
+
+		cp0_i2c1_pins: cp0-i2c-pins-1 {
+			marvell,pins = "mpp35", "mpp36";
+			marvell,function = "i2c1";
+		};
+		cp0_ge1_rgmii_pins: cp0-ge-rgmii-pins-0 {
+			marvell,pins = "mpp0", "mpp1", "mpp2",
+				       "mpp3", "mpp4", "mpp5",
+				       "mpp6", "mpp7", "mpp8",
+				       "mpp9", "mpp10", "mpp11";
+			marvell,function = "ge0";
+		};
+		cp0_ge2_rgmii_pins: cp0-ge-rgmii-pins-1 {
+			marvell,pins = "mpp44", "mpp45", "mpp46",
+				       "mpp47", "mpp48", "mpp49",
+				       "mpp50", "mpp51", "mpp52",
+				       "mpp53", "mpp54", "mpp55";
+			marvell,function = "ge1";
+		};
+		cp0_sdhci_cd_pins: cp0-sdhci-cd-pins-0 {
+			marvell,pins = "mpp43";
+			marvell,function = "gpio";
+		};
+		cp0_sdhci_pins: cp0-sdhi-pins-0 {
+			marvell,pins = "mpp60", "mpp61";
+			marvell,function = "sdio";
+		};
+		cp0_spi0_pins: cp0-spi-pins-0 {
+			marvell,pins = "mpp56", "mpp57", "mpp58", "mpp59";
+			marvell,function = "spi0";
+		};
+		nand_pins: nand-pins {
+			marvell,pins =
+			"mpp15", "mpp16", "mpp17", "mpp18", "mpp19",
+			"mpp20", "mpp21", "mpp22", "mpp23", "mpp24",
+			"mpp25", "mpp26", "mpp27";
+			marvell,function = "dev";
+		};
+		nand_rb: nand-rb {
+			marvell,pins = "mpp13";
+			marvell,function = "nf";
+		};
+
+		cp0_button_pin: cp0-button-pin {
+			marvell,pins = "mpp4";
+			marvell,function = "gpio";
+		};
+	};
+};
+
+// UART0 is the factory default console, which we don't really use.
+// I *think* it goes to the 4-pin header beside the CPU, but I couldn't
+// get any signs of life (might have had the wrong UART voltage, IDK)
+&uart0 {
+	status = "okay";
+	pinctrl-0 = <&uart0_pins>;
+	pinctrl-names = "default";
+};
+
+&cp0_uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&cp0_uart2_pins>;
+	status = "okay";
+};
+
+&cp0_crypto {
+	status = "okay";
+};
+
+&cp0_utmi {
+	status = "okay";
+};
+
+&cp0_usb3_0 {
+	status = "okay";
+	usb-phy = <&cp0_usb3_0_phy0>;
+	phys = <&cp0_utmi0>;
+	phy-names = "utmi";
+	dr_mode = "host";
+};
+
+&cp0_usb3_1 {
+	status = "okay";
+	usb-phy = <&cp0_usb3_0_phy1>;
+	phys = <&cp0_utmi1>;
+	phy-names = "utmi";
+	dr_mode = "host";
+};
+
+/*
+ * Instantiate the first slave CP115
+ */
+
+#define CP11X_NAME		cp1
+#define CP11X_BASE		f4000000
+#define CP11X_PCIEx_MEM_BASE(iface) (0xe2000000 + (iface * 0x1000000))
+#define CP11X_PCIEx_MEM_SIZE(iface) 0xf00000
+#define CP11X_PCIE0_BASE	f4600000
+#define CP11X_PCIE1_BASE	f4620000
+#define CP11X_PCIE2_BASE	f4640000
+
+#include "armada-cp115.dtsi"
+
+#undef CP11X_NAME
+#undef CP11X_BASE
+#undef CP11X_PCIEx_MEM_BASE
+#undef CP11X_PCIEx_MEM_SIZE
+#undef CP11X_PCIE0_BASE
+#undef CP11X_PCIE1_BASE
+#undef CP11X_PCIE2_BASE
+
+&cp1_ethernet {
+	status = "okay";
+};
+
+&cp1_crypto {
+	status = "okay";
+};
+
+&cp1_sfp_eth0 {
+	status = "okay";
+};
+
+/* RJ45 CON55 via 3310 */
+&cp1_eth0 {
+	status = "okay";
+	phy-mode = "10gbase-kr";
+	//phy = <&phy8>;
+	phys = <&cp1_comphy4 0>;
+	managed = "in-band-status";
+	sfp = <&cp1_sfp_eth0>;
+	dev-name = "dpdk1";
+};
+
+/* CON50 */
+&cp1_eth1 {
+	status = "okay";
+	phy-mode = "2500base-x";
+	/* Generic PHY, providing serdes lanes */
+	phys = <&cp1_comphy0 1>;
+	managed = "in-band-status";
+	//sfp = <&cp1_sfp_eth1>;
+	dev-name = "dpdk3";
+};
+
+&cp1_eth2 {
+	status = "okay";
+	phy-mode = "2500base-x";
+	/* Generic PHY, providing serdes lanes */
+	phys = <&cp1_comphy1 2>;
+	managed = "in-band-status";
+	//sfp = <&cp1_sfp_eth1>;
+	dev-name = "kern1";
+};
+
+&cp1_xmdio {
+	status = "okay";
+	phy8: ethernet-phy@8 {
+		compatible = "ethernet-phy-ieee802.3-c45";
+		reg = <8>;
+	};
+};
+
+
+&cp1_crypto {
+	status = "disabled";
+};
+
+&cp1_gpio1 {
+	status = "okay";
+};
+
+&cp1_gpio2 {
+	status = "okay";
+};
+
+&cp1_i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&cp1_i2c0_pins>;
+	status = "okay";
+	clock-frequency = <100000>;
+};
+
+&cp1_i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&cp1_i2c1_pins>;
+	status = "okay";
+	clock-frequency = <100000>;
+};
+
+&cp1_syscon0 {
+	cp1_pinctrl: pinctrl {
+		compatible = "marvell,cp115-standalone-pinctrl";
+
+		cp1_i2c0_pins: cp1-i2c-pins-0 {
+			marvell,pins = "mpp37", "mpp38";
+			marvell,function = "i2c0";
+		};
+		cp1_i2c1_pins: cp1-i2c-pins-1 {
+			marvell,pins = "mpp35", "mpp36";
+			marvell,function = "i2c1";
+		};
+		cp1_xhci0_vbus_pins: cp1-xhci0-vbus-pins {
+			marvell,pins = "mpp15", "mpp16";
+			marvell,function = "gpio";
+		};
+		cp1_xhci1_vbus_pins: cp1-xhci1-vbus-pins {
+			marvell,pins = "mpp13", "mpp14";
+			marvell,function = "gpio";
+		};
+		cp1_sfp_pins: sfp-pins {
+			marvell,pins = "mpp48", "mpp49", "mpp50";
+			marvell,function = "gpio";
+		};
+	};
+};
