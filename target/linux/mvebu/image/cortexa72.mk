@@ -2,6 +2,21 @@ define Build/append-bootscript
 	cat $@-boot.scr >> $@
 endef
 
+define Build/append-kernel-lzma
+  $(STAGING_DIR_HOST)/bin/lzma e $(IMAGE_KERNEL) -so >> $@
+endef
+
+define Build/tplink-dkmgt-image
+  dd if=$(KDIR)/image-$(firstword $(DEVICE_DTS)).dtb bs=$(BLOCKSIZE) conv=sync >> $@.tmp
+  $(call Image/pad-to,$@.tmp,$(BLOCKSIZE))
+  $(STAGING_DIR_HOST)/bin/lzma e $(IMAGE_KERNEL) -so >> $@.tmp
+  $(STAGING_DIR_HOST)/bin/dkmgt-fwutil -c $@ \
+    -V "$(VERSION_NUMBER)" -R "$(firstword $(subst -, ,$(REVISION)))" \
+    -I "$(VERSION_DIST) $(VERSION_NUMBER) $(REVISION)" \
+    -a support-list=$1 -k $@.tmp 
+  rm $@.tmp
+endef
+
 define Device/FitImage
   KERNEL_SUFFIX := -uImage.itb
   KERNEL = kernel-bin | gzip | fit gzip $$(KDIR)/image-$$(DEVICE_DTS).dtb
@@ -157,3 +172,17 @@ define Device/solidrun_clearfog-pro
   BOOT_SCRIPT := clearfog-pro
 endef
 TARGET_DEVICES += solidrun_clearfog-pro
+
+define Device/tplink_er8411
+  $(call Device/Default-arm64)
+  $(Device/NAND-128K)
+  SOC := cn9131
+  DEVICE_VENDOR := TP-Link
+  DEVICE_MODEL := ER8411
+  DEVICE_PACKAGES += kmod-i2c-mux-pca954x
+  DEVICE_DTS := cn9131-tplink-er8411-v1
+  KERNEL := append-dtb | pad-to 128k | append-kernel-lzma
+  KERNEL_INITRAMFS := tplink-dkmgt-image tplink-er8411-supported-devices.json
+  KERNEL_INITRAMFS_SUFFIX := -recovery.bin
+endef
+TARGET_DEVICES += tplink_er8411
