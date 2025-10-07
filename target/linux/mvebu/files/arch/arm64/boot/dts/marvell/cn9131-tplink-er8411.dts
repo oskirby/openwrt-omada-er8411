@@ -9,10 +9,11 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
+#include <dt-bindings/leds/common.h>
 
 / {
-	model = "TP-Link ER8411 v1";
-	compatible = "tplink,er8411-v1",
+	model = "TP-Link ER8411";
+	compatible = "tplink,er8411",
 		     "marvell,armada-ap807-quad", "marvell,armada-ap807";
 
 	chosen {
@@ -25,16 +26,17 @@
 	};
 
 	aliases {
+		led-boot = &led_system;
+		led-failsafe = &led_system;
+		led-running = &led_system;
+		led-upgrade = &led_system;
 		gpio1 = &cp0_gpio1;
 		gpio2 = &cp0_gpio2;
 		gpio3 = &cp1_gpio1;
 		gpio4 = &cp1_gpio2;
 		i2c0 = &cp1_i2c0;
 		ethernet0 = &cp0_eth0;
-		ethernet1 = &cp0_eth1;
-		ethernet2 = &cp0_eth2;
-		ethernet3 = &cp1_eth0;
-		ethernet4 = &cp1_eth1;
+		ethernet1 = &cp1_eth0;
 		spi1 = &cp0_spi0;
 		spi2 = &cp0_spi1;
 		serial1 = &cp0_uart2;
@@ -120,7 +122,7 @@
 		vcc-supply = <&cp1_reg_usb3_vbus1>;
 	};
 
-	cp1_sfp_eth0: sfp-eth0 {
+	cp1_sfp_eth0: sfp-wan {
 		compatible = "sff,sfp";
 		i2c-bus = <&cp1_i2c0>;
 		los-gpio = <&cp1_gpio1 18 GPIO_ACTIVE_HIGH>;
@@ -128,7 +130,7 @@
 		tx-disable-gpio = <&cp1_gpio1 16 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&cp1_sfp_pins>;
-		status = "disabled";
+		status = "okay";
 	};
 
 	cp1_sfp_eth1: sfp-eth-2 {
@@ -148,47 +150,63 @@
 		status = "disabled";
 	};
 
+	// This is just a guess at what the pin does, but it seems this needs to
+	// be enabled for the LEDs on the marvell switch to function as expected.
+	led_regulator: led-regulator {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+		pinctrl-0 = <&cp0_led_regulator_pin>;
+		regulator-name = "led-regulator";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&cp0_gpio2 12 GPIO_ACTIVE_LOW>;
+		regulator-always-on;
+	};
+
 	gpio-leds {
 		compatible = "gpio-leds";
 
-		sys-led {
-			label = "SYS_LED";
+		led_system: system {
+			label = "green:system";
+			color = <LED_COLOR_ID_GREEN>;
 			gpios = <&cp0_gpio2 30 GPIO_ACTIVE_LOW>;
-			default-state = "keep";
-			linux,default-trigger = "none";
-			retain-state-suspended;
+			function = LED_FUNCTION_STATUS;
 		};
-		lan-led {
-			label = "LAN_LED_0";
+
+		wan-led-amber {
+			label = "amber:wan";
+			color = <LED_COLOR_ID_AMBER>;
 			gpios = <&cp1_gpio1 0 GPIO_ACTIVE_LOW>;
-			default-state = "keep";
-			linux,default-trigger = "none";
-			retain-state-suspended;
+			function = LED_FUNCTION_WAN;
 		};
-		lan-led1 {
-			label = "LAN_LED_1";
+		wan-led-green {
+			label = "green:wan";
+			color = <LED_COLOR_ID_GREEN>;
 			gpios = <&cp1_gpio1 11 GPIO_ACTIVE_LOW>;
-			default-state = "keep";
-			linux,default-trigger = "none";
-			retain-state-suspended;
+			function = LED_FUNCTION_WAN;
 		};
+
 		usb-storage-led {
 			label = "USB_STORAGE_LED";
+			color = <LED_COLOR_ID_GREEN>;
 			gpios = <&cp0_gpio1 2 GPIO_ACTIVE_LOW>;
 			default-state = "keep";
 		};
 		usb-lte-led {
 			label = "USB_LTE_LED";
+			color = <LED_COLOR_ID_GREEN>;
 			gpios = <&cp1_gpio1 7 GPIO_ACTIVE_LOW>;
 			default-state = "keep";
 		};
 		fan-normal-led {
 			label = "FAN_NORMAL_LED";
+			color = <LED_COLOR_ID_GREEN>;
 			gpios = <&cp1_gpio1 8 GPIO_ACTIVE_LOW>;
 			default-state = "keep";
 		};
 		fan-error-led {
 			label = "FAN_ERROR_LED";
+			color = <LED_COLOR_ID_AMBER>;
 			gpios = <&cp0_gpio1 10 GPIO_ACTIVE_LOW>;
 			default-state = "keep";
 		};
@@ -205,6 +223,42 @@
 			gpios = <&cp0_gpio1 4 GPIO_ACTIVE_LOW>;
 		};
 	};
+
+	fan: gpio-fan {
+		compatible = "gpio-fan";
+		pinctrl-names = "default";
+		pinctrl-0 = <&cp0_fan_pins>;
+		gpios = <&cp0_gpio2 23 GPIO_ACTIVE_LOW
+			 &cp0_gpio2 22 GPIO_ACTIVE_LOW>;
+		gpio-fan,speed-map = <0 0>, <0 1>, <3000 2>, <6000 3>;
+		#cooling-cells = <2>;
+	};
+};
+
+&ap_thermal_ic {
+	polling-delay = <1000>; /* milliseconds */
+	trips {
+		ap_active: trip-active {
+			temperature = <40000>; /* millicelsius */
+			hysteresis = <4000>; /* millicelsius */
+			type = "active";
+		};
+		ap_high: trip-high {
+			temperature = <60000>; /* millicelsius */
+			hysteresis = <4000>; /* millicelsius */
+			type = "active";
+		};
+	};
+	cooling-maps {
+		active {
+			trip = <&ap_active>;
+			cooling-device = <&fan 2 2>;
+		};
+		high {
+			trip = <&ap_high>;
+			cooling-device = <&fan 3 3>;
+		};
+	};
 };
 
 /*
@@ -214,40 +268,16 @@
 	status = "okay";
 };
 
-/* SLM-1521-V2, CON9 */
+/* LAN1-11 via mv88e6193 switch */
 &cp0_eth0 {
 	status = "okay";
-	phy-mode = "10gbase-kr";
-	dev-name = "dpdk0";
-	/* Generic PHY, providing serdes lanes */
+	phy-mode = "10gbase-r";
 	phys = <&cp0_comphy4 0>;
 	phy = <&mvsw6193>;
 	fixed-link {
 		speed = <10000>;
 		full-duplex;
 	};
-};
-
-/* CON56 */
-&cp0_eth1 {
-	status = "okay";
-	phy-mode = "2500base-x";
-	/* Generic PHY, providing serdes lanes */
-	phys = <&cp0_comphy0 1>;
-	managed = "in-band-status";
-	/* sfp = <&cp0_sfp_eth0>; */
-	dev-name = "dpdk2";
-};
-
-/* CON57 */
-&cp0_eth2 {
-	status = "okay";
-	phy-mode = "2500base-x";
-	/* Generic PHY, providing serdes lanes */
-	phys = <&cp0_comphy1 2>;
-	managed = "in-band-status";
-	/* sfp = <&cp0_sfp_eth0>; */
-	dev-name = "kern0";
 };
 
 &cp0_i2c1 {
@@ -285,6 +315,7 @@
 
 &cp0_mdio {
 	status = "okay";
+
 	mvsw6193: switch@0{
 		compatible = "marvell,mv88e6190";
 		status = "okay";
@@ -296,56 +327,192 @@
 
 			swport0: port@0 {
 				reg = <0x0>;
-				label = "sfp-lan0";
+				label = "lan3";
 				phy-mode = "1000base-x";
 			};
 
 			swport1: port@1 {
 				reg = <0x1>;
-				label = "lan1";
+				label = "lan4";
 				phy-handle = <&swphy1>;
+
+				leds {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					led@0 {
+						reg = <0>;
+						color = <LED_COLOR_ID_GREEN>;
+						function = LED_FUNCTION_LAN;
+					};
+
+					led@1 {
+						reg = <1>;
+						color = <LED_COLOR_ID_AMBER>;
+						function = LED_FUNCTION_LAN;
+					};
+				};
 			};
 
 			swport2: port@2 {
 				reg = <0x2>;
-				label = "lan2";
+				label = "lan5";
 				phy-handle = <&swphy2>;
+
+				leds {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					led@0 {
+						reg = <0>;
+						color = <LED_COLOR_ID_GREEN>;
+						function = LED_FUNCTION_LAN;
+					};
+
+					led@1 {
+						reg = <1>;
+						color = <LED_COLOR_ID_AMBER>;
+						function = LED_FUNCTION_LAN;
+					};
+				};
 			};
 
 			swport3: port@3 {
 				reg = <0x3>;
-				label = "lan3";
+				label = "lan6";
 				phy-handle = <&swphy3>;
+
+				leds {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					led@0 {
+						reg = <0>;
+						color = <LED_COLOR_ID_GREEN>;
+						function = LED_FUNCTION_LAN;
+					};
+
+					led@1 {
+						reg = <1>;
+						color = <LED_COLOR_ID_AMBER>;
+						function = LED_FUNCTION_LAN;
+					};
+				};
 			};
 
 			swport4: port@4 {
 				reg = <0x4>;
-				label = "lan4";
+				label = "lan7";
 				phy-handle = <&swphy4>;
+
+				leds {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					led@0 {
+						reg = <0>;
+						color = <LED_COLOR_ID_GREEN>;
+						function = LED_FUNCTION_LAN;
+					};
+
+					led@1 {
+						reg = <1>;
+						color = <LED_COLOR_ID_AMBER>;
+						function = LED_FUNCTION_LAN;
+					};
+				};
 			};
 
 			swport5: port@5 {
 				reg = <0x5>;
-				label = "lan5";
+				label = "lan8";
 				phy-handle = <&swphy5>;
+
+				leds {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					led@0 {
+						reg = <0>;
+						color = <LED_COLOR_ID_GREEN>;
+						function = LED_FUNCTION_LAN;
+					};
+
+					led@1 {
+						reg = <1>;
+						color = <LED_COLOR_ID_AMBER>;
+						function = LED_FUNCTION_LAN;
+					};
+				};
 			};
 
 			swport6: port@6 {
 				reg = <0x6>;
-				label = "lan6";
+				label = "lan9";
 				phy-handle = <&swphy6>;
+
+				leds {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					led@0 {
+						reg = <0>;
+						color = <LED_COLOR_ID_GREEN>;
+						function = LED_FUNCTION_LAN;
+					};
+
+					led@1 {
+						reg = <1>;
+						color = <LED_COLOR_ID_AMBER>;
+						function = LED_FUNCTION_LAN;
+					};
+				};
 			};
 
 			swport7: port@7 {
 				reg = <0x7>;
-				label = "lan7";
+				label = "lan10";
 				phy-handle = <&swphy7>;
+
+				leds {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					led@0 {
+						reg = <0>;
+						color = <LED_COLOR_ID_GREEN>;
+						function = LED_FUNCTION_LAN;
+					};
+
+					led@1 {
+						reg = <1>;
+						color = <LED_COLOR_ID_AMBER>;
+						function = LED_FUNCTION_LAN;
+					};
+				};
 			};
 
 			swport8: port@8 {
 				reg = <0x8>;
-				label = "lan8";
+				label = "lan11";
 				phy-handle = <&swphy8>;
+
+				leds {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					led@0 {
+						reg = <0>;
+						color = <LED_COLOR_ID_GREEN>;
+						function = LED_FUNCTION_LAN;
+					};
+
+					led@1 {
+						reg = <1>;
+						color = <LED_COLOR_ID_AMBER>;
+						function = LED_FUNCTION_LAN;
+					};
+				};
 			};
 
 			port@9 {
@@ -353,7 +520,6 @@
 				label = "cpu";
 				ethernet = <&cp0_eth0>;
 				phy-mode = "10gbase-r";
-				managed = "in-band-status";
 
 				fixed-link {
 					speed = <10000>;
@@ -363,10 +529,10 @@
 
 			port@a {
 				reg = <0xa>;
-				label = "sfp-lan10";
+				label = "lan2";
 				phy-mode = "10gbase-r";
 				managed = "in-band-status";
-			}
+			};
 		};
 
 		mdio {
@@ -493,20 +659,6 @@
 			marvell,pins = "mpp35", "mpp36";
 			marvell,function = "i2c1";
 		};
-		cp0_ge1_rgmii_pins: cp0-ge-rgmii-pins-0 {
-			marvell,pins = "mpp0", "mpp1", "mpp2",
-				       "mpp3", "mpp4", "mpp5",
-				       "mpp6", "mpp7", "mpp8",
-				       "mpp9", "mpp10", "mpp11";
-			marvell,function = "ge0";
-		};
-		cp0_ge2_rgmii_pins: cp0-ge-rgmii-pins-1 {
-			marvell,pins = "mpp44", "mpp45", "mpp46",
-				       "mpp47", "mpp48", "mpp49",
-				       "mpp50", "mpp51", "mpp52",
-				       "mpp53", "mpp54", "mpp55";
-			marvell,function = "ge1";
-		};
 		cp0_spi0_pins: cp0-spi-pins-0 {
 			marvell,pins = "mpp56", "mpp57", "mpp58", "mpp59";
 			marvell,function = "spi0";
@@ -525,6 +677,16 @@
 
 		cp0_button_pin: cp0-button-pin {
 			marvell,pins = "mpp4";
+			marvell,function = "gpio";
+		};
+
+		cp0_led_regulator_pin: cp0-led-regulator-pin {
+			marvell,pins = "mpp44";
+			marvell,function = "gpio";
+		};
+
+		cp0_fan_pins: cp0-fan-pins {
+			marvell,pins = "mpp54", "mpp55";
 			marvell,function = "gpio";
 		};
 	};
@@ -599,38 +761,14 @@
 	status = "okay";
 };
 
-&cp1_sfp_eth0 {
-	status = "okay";
-};
-
-/* RJ45 CON55 via 3310 */
+/* "WAN" SFP+ Port */
 &cp1_eth0 {
 	status = "okay";
-	phy-mode = "10gbase-kr";
-	//phy = <&phy8>;
+	label = "wan";
+	phy-mode = "10gbase-r";
 	phys = <&cp1_comphy4 0>;
 	managed = "in-band-status";
 	sfp = <&cp1_sfp_eth0>;
-	dev-name = "dpdk1";
-};
-
-/* CON50 */
-&cp1_eth1 {
-	status = "okay";
-	phy-mode = "2500base-x";
-	/* Generic PHY, providing serdes lanes */
-	phys = <&cp1_comphy0 1>;
-	managed = "in-band-status";
-	dev-name = "dpdk3";
-};
-
-&cp1_eth2 {
-	status = "okay";
-	phy-mode = "2500base-x";
-	/* Generic PHY, providing serdes lanes */
-	phys = <&cp1_comphy1 2>;
-	managed = "in-band-status";
-	dev-name = "kern1";
 };
 
 &cp1_xmdio {

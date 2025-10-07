@@ -179,8 +179,8 @@ define Device/tplink_er8411
   SOC := cn9131
   DEVICE_VENDOR := TP-Link
   DEVICE_MODEL := ER8411
-  DEVICE_PACKAGES += kmod-i2c-mux-pca954x
-  DEVICE_DTS := cn9131-tplink-er8411-v1
+  DEVICE_PACKAGES += kmod-i2c-mux-pca954x kmod-dsa-mv88e6xxx
+  DEVICE_DTS := cn9131-tplink-er8411
   KERNEL := append-dtb | pad-to 128k | append-kernel-lzma
   KERNEL_INITRAMFS := tplink-dkmgt-image tplink-er8411-supported-devices.json
   KERNEL_INITRAMFS_SUFFIX := -recovery.bin
