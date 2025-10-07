@@ -320,6 +320,7 @@
 		compatible = "marvell,mv88e6190";
 		status = "okay";
 		reg = <0>;
+		ptp-disable;
 
 		ports {
 			#address-cells = <1>;

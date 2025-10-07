@@ -1,0 +1,106 @@
+From 7b4d32a5a1e89f5173430896726304561f9fd0cf Mon Sep 17 00:00:00 2001
+From: Naomi Kirby <oskirby@gmail.com>
+Date: Tue, 7 Oct 2025 07:37:33 -0700
+Subject: [PATCH] mv88e6xxx: add ptp-disable property from device tree
+
+There appears to be an issue on the Marvell 88e6193 switch on the
+TP-Link ER8411 where the PTP and hardware timestamp fails to setup
+correctly. As a workaround, add support for an optional 'ptp-disable'
+property in the device tree to disable support for PTP.
+
+Signed-of-by: Naomi Kirby <dev@manawolf.ca>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c     | 9 +++++++--
+ drivers/net/dsa/mv88e6xxx/chip.h     | 1 +
+ drivers/net/dsa/mv88e6xxx/hwtstamp.c | 8 ++++----
+ 3 files changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 284270a4ade1..45eb15052205 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -4048,7 +4048,7 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
+ 		goto unlock;
+ 
+ 	/* Setup PTP Hardware Clock and timestamping */
+-	if (chip->info->ptp_support) {
++	if (chip->ptp_support) {
+ 		err = mv88e6xxx_ptp_setup(chip);
+ 		if (err)
+ 			goto unlock;
+@@ -7245,6 +7245,11 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 			goto out;
+ 	}
+ 
++	if (np && of_property_read_bool(np, "ptp-disable"))
++		chip->ptp_support = false;
++	else
++		chip->ptp_support = chip->info->ptp_support;
++
+ 	if (chip->info->edsa_support == MV88E6XXX_EDSA_SUPPORTED)
+ 		chip->tag_protocol = DSA_TAG_PROTO_EDSA;
+ 	else
+@@ -7340,7 +7345,7 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
+ 
+ 	chip = ds->priv;
+ 
+-	if (chip->info->ptp_support) {
++	if (chip->ptp_support) {
+ 		mv88e6xxx_hwtstamp_free(chip);
+ 		mv88e6xxx_ptp_free(chip);
+ 	}
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.h b/drivers/net/dsa/mv88e6xxx/chip.h
+index a54682240839..c5ace3e5c2e4 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.h
++++ b/drivers/net/dsa/mv88e6xxx/chip.h
+@@ -411,6 +411,7 @@ struct mv88e6xxx_chip {
+ 	struct delayed_work	overflow_work;
+ 	const struct mv88e6xxx_cc_coeffs *cc_coeffs;
+ 
++	bool ptp_support;
+ 	struct ptp_clock	*ptp_clock;
+ 	struct ptp_clock_info	ptp_clock_info;
+ 	struct delayed_work	tai_event_work;
+diff --git a/drivers/net/dsa/mv88e6xxx/hwtstamp.c b/drivers/net/dsa/mv88e6xxx/hwtstamp.c
+index 49e6e1355142..97ec31bfe83c 100644
+--- a/drivers/net/dsa/mv88e6xxx/hwtstamp.c
++++ b/drivers/net/dsa/mv88e6xxx/hwtstamp.c
+@@ -72,7 +72,7 @@ int mv88e6xxx_get_ts_info(struct dsa_switch *ds, int port,
+ 	chip = ds->priv;
+ 	ptp_ops = chip->info->ops->ptp_ops;
+ 
+-	if (!chip->info->ptp_support)
++	if (!chip->ptp_support)
+ 		return -EOPNOTSUPP;
+ 
+ 	info->so_timestamping =
+@@ -176,7 +176,7 @@ int mv88e6xxx_port_hwtstamp_set(struct dsa_switch *ds, int port,
+ 	struct hwtstamp_config config;
+ 	int err;
+ 
+-	if (!chip->info->ptp_support)
++	if (!chip->ptp_support)
+ 		return -EOPNOTSUPP;
+ 
+ 	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
+@@ -200,7 +200,7 @@ int mv88e6xxx_port_hwtstamp_get(struct dsa_switch *ds, int port,
+ 	struct mv88e6xxx_port_hwtstamp *ps = &chip->port_hwtstamp[port];
+ 	struct hwtstamp_config *config = &ps->tstamp_config;
+ 
+-	if (!chip->info->ptp_support)
++	if (!chip->ptp_support)
+ 		return -EOPNOTSUPP;
+ 
+ 	return copy_to_user(ifr->ifr_data, config, sizeof(*config)) ?
+@@ -217,7 +217,7 @@ static struct ptp_header *mv88e6xxx_should_tstamp(struct mv88e6xxx_chip *chip,
+ 	struct mv88e6xxx_port_hwtstamp *ps = &chip->port_hwtstamp[port];
+ 	struct ptp_header *hdr;
+ 
+-	if (!chip->info->ptp_support)
++	if (!chip->ptp_support)
+ 		return NULL;
+ 
+ 	hdr = ptp_parse_header(skb, type);
+-- 
+2.51.0
+
