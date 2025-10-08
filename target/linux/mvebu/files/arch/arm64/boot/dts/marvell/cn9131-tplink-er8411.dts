@@ -596,7 +596,7 @@
 			#size-cells = <1>;
 
 			partition@0 {
-				label = "firmware";
+				label = "ubi";
 				compatible = "linux,ubi";
 				reg = <0 0xfc00000>;
 			};

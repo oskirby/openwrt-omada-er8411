@@ -181,6 +181,8 @@ define Device/tplink_er8411
   DEVICE_MODEL := ER8411
   DEVICE_PACKAGES += kmod-i2c-mux-pca954x kmod-dsa-mv88e6xxx
   DEVICE_DTS := cn9131-tplink-er8411
+  IMAGES := sysupgrade.bin
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
   KERNEL := append-dtb | pad-to 128k | append-kernel-lzma
   KERNEL_INITRAMFS := tplink-dkmgt-image tplink-er8411-supported-devices.json
   KERNEL_INITRAMFS_SUFFIX := -recovery.bin

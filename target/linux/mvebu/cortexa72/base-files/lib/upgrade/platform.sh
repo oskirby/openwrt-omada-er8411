@@ -54,6 +54,15 @@ platform_check_image() {
 	esac
 }
 
+
+platform_pre_upgrade() {
+	case "$(board_name)" in
+	tplink,er8411)
+		platform_pre_upgrade_tplink_dkmgt
+		;;
+	esac
+}
+
 platform_do_upgrade() {
 	case "$(board_name)" in
 	checkpoint,v-80|\
@@ -85,6 +94,9 @@ platform_do_upgrade() {
 		;;
 	mikrotik,rb5009)
 		nand_do_upgrade "$1"
+		;;
+	tplink,er8411)
+		platform_do_upgrade_tplink_dkmgt "$1"
 		;;
 	*)
 		default_do_upgrade "$1"
