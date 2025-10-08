@@ -179,7 +179,7 @@ define Device/tplink_er8411
   SOC := cn9131
   DEVICE_VENDOR := TP-Link
   DEVICE_MODEL := ER8411
-  DEVICE_PACKAGES += kmod-i2c-mux-pca954x kmod-dsa-mv88e6xxx
+  DEVICE_PACKAGES += kmod-leds-pca955x kmod-dsa-mv88e6xxx kmod-hwmon-gpiofan kmod-hwmon-lm75
   DEVICE_DTS := cn9131-tplink-er8411
   IMAGES := sysupgrade.bin
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata

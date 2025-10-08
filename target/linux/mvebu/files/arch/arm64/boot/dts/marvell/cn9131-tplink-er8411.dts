@@ -116,10 +116,36 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&cp1_sfp_wan_pins>;
 		status = "okay";
+		#thermal-sensor-cells = <0>;
+	};
+
+	sfp_port2: sfp-port2 {
+		compatible = "sff,sfp";
+		i2c-bus = <&cp1_i2c1>;
+		//los-gpio = <&cp1_gpio2 2 GPIO_ACTIVE_HIGH>;
+		mod-def0-gpio = <&cp1_gpio2 1 GPIO_ACTIVE_LOW>;
+		tx-disable-gpio = <&cp1_gpio2 0 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cp1_sfp_port2_pins>;
+		status = "okay";
+		#thermal-sensor-cells = <0>;
+	};
+
+	sfp_port3: sfp-port3 {
+		compatible = "sff,sfp";
+		i2c-bus = <&cp0_i2c1>;
+		//los-gpio = <&cp1_gpio2 10 GPIO_ACTIVE_HIGH>;
+		mod-def0-gpio = <&cp1_gpio2 9 GPIO_ACTIVE_LOW>;
+		tx-disable-gpio = <&cp1_gpio2 8 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cp1_sfp_port3_pins>;
+		status = "okay";
+		#thermal-sensor-cells = <0>;
 	};
 
 	// This is just a guess at what the pin does, but it seems this needs to
 	// be enabled for the LEDs on the marvell switch to function as expected.
+	// The name LED_88MV6193_OE appears in the OEM firmware for this pin.
 	led_regulator: led-regulator {
 		compatible = "regulator-fixed";
 		pinctrl-names = "default";
@@ -152,6 +178,13 @@
 			color = <LED_COLOR_ID_GREEN>;
 			gpios = <&cp1_gpio1 11 GPIO_ACTIVE_LOW>;
 			function = LED_FUNCTION_WAN;
+		};
+
+		sfp_amber {
+			label = "amber:sfp";
+			color = <LED_COLOR_ID_AMBER>;
+			gpio = <&cp0_gpio2 10 GPIO_ACTIVE_LOW>;
+			function = LED_FUNCTION_LAN;
 		};
 
 		usb-storage-led {
@@ -190,16 +223,71 @@
 			linux,code = <KEY_RESTART>;
 			gpios = <&cp0_gpio1 4 GPIO_ACTIVE_LOW>;
 		};
+
+		pwr1_good {
+			label = "PSU1 Good";
+			gpios = <&cp0_gpio1 0 GPIO_ACTIVE_HIGH>;
+		};
+		pwr1_active {
+			label = "PSU1 Active";
+			gpios = <&cp0_gpio1 7 GPIO_ACTIVE_HIGH>;
+		};
+		pwr2_good {
+			label = "PSU2 Good";
+			gpios = <&cp0_gpio2 17 GPIO_ACTIVE_HIGH>;
+		};
+		pwr2_active {
+			label = "PSU2 Active";
+			gpios = <&cp0_gpio1 8 GPIO_ACTIVE_HIGH>;
+		};
 	};
 
 	fan: gpio-fan {
 		compatible = "gpio-fan";
 		pinctrl-names = "default";
 		pinctrl-0 = <&cp0_fan_pins>;
-		gpios = <&cp0_gpio2 23 GPIO_ACTIVE_LOW
-			 &cp0_gpio2 22 GPIO_ACTIVE_LOW>;
+		gpios = <&cp0_gpio2 22 GPIO_ACTIVE_LOW
+			 &cp0_gpio2 23 GPIO_ACTIVE_LOW>;
+		alarm-gpios = <&cp0_gpio2 7 GPIO_ACTIVE_LOW>;
 		gpio-fan,speed-map = <0 0>, <0 1>, <3000 2>, <6000 3>;
 		#cooling-cells = <2>;
+	};
+
+	thermal-zones {
+		phy-thermal {
+			polling-delay-passive = <10000>;
+			polling-delay = <10000>;
+			thermal-sensors =
+				<&sfp_wan &sfp_port2 &sfp_port3>,
+			    <&swphy1 &swphy2 &swphy3 &swphy4 &swphy5 &swphy6 &swphy7 &swphy8>;
+			trips {
+				phy_active: phy-active {
+					temperature = <40000>;
+					hysteresis = <4000>;
+					type = "active";
+				};
+				phy_high: phy-high {
+					temperature = <65000>;
+					hysteresis = <4000>;
+					type = "active";
+				};
+				sfp_critical: sfp-crit {
+					temperature = <110000>;
+					hysteresis = <1000>;
+					type = "critical";
+				};
+			};
+			cooling-maps {
+				active {
+					trip = <&phy_active>;
+					cooling-device = <&fan 2 2>;
+				};
+				high {
+					trip = <&phy_high>;
+					cooling-device = <&fan 3 3>;
+				};
+			};
+		};
 	};
 };
 
@@ -248,37 +336,13 @@
 	};
 };
 
+&cp0_i2c0 {
+	status = "disabled";
+};
+
 &cp0_i2c1 {
 	status = "okay";
 	clock-frequency = <100000>;
-
-	/* SLM-1521-V2 - U3 */
-	i2c-mux@72 { /* verify address - depends on dpr */
-		compatible = "nxp,pca9544";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <0x72>;
-		cp0_sfpp0_i2c: i2c@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0>;
-		};
-
-		i2c@1 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <1>;
-			/* U12 */
-			cp0_module_expander1: pca9555@21 {
-				compatible = "nxp,pca9555";
-				pinctrl-names = "default";
-				gpio-controller;
-				#gpio-cells = <2>;
-				reg = <0x21>;
-			};
-
-		};
-	};
 };
 
 &cp0_mdio {
@@ -297,7 +361,9 @@
 			swport0: port@0 {
 				reg = <0x0>;
 				label = "lan3";
-				phy-mode = "1000base-x";
+				phy-mode = "sgmii";
+				managed = "in-band-status";
+				sfp = <&sfp_port3>;
 			};
 
 			swport1: port@1 {
@@ -501,6 +567,7 @@
 				label = "lan2";
 				phy-mode = "10gbase-r";
 				managed = "in-band-status";
+				sfp = <&sfp_port2>;
 			};
 		};
 
@@ -510,34 +577,42 @@
 
 			swphy1: switch-phy@1 {
 				reg = <0x1>;
+				#thermal-sensor-cells = <0>;
 			};
 
 			swphy2: switch-phy@2 {
 				reg = <0x2>;
+				#thermal-sensor-cells = <0>;
 			};
 
 			swphy3: switch-phy@3 {
 				reg = <0x3>;
+				#thermal-sensor-cells = <0>;
 			};
 
 			swphy4: switch-phy@4 {
 				reg = <0x4>;
+				#thermal-sensor-cells = <0>;
 			};
 
 			swphy5: switch-phy@5 {
 				reg = <0x5>;
+				#thermal-sensor-cells = <0>;
 			};
 
 			swphy6: switch-phy@6 {
 				reg = <0x6>;
+				#thermal-sensor-cells = <0>;
 			};
 
 			swphy7: switch-phy@7 {
 				reg = <0x7>;
+				#thermal-sensor-cells = <0>;
 			};
 
 			swphy8: switch-phy@8 {
 				reg = <0x8>;
+				#thermal-sensor-cells = <0>;
 			};
 		};
 	};
@@ -564,8 +639,8 @@
 			#size-cells = <1>;
 
 			partition@0 {
-				label = "ubi";
 				compatible = "linux,ubi";
+				label = "ubi";
 				reg = <0 0xfc00000>;
 			};
 
@@ -655,7 +730,7 @@
 		};
 
 		cp0_fan_pins: cp0-fan-pins {
-			marvell,pins = "mpp54", "mpp55";
+			marvell,pins = "mpp39", "mpp54", "mpp55";
 			marvell,function = "gpio";
 		};
 	};
@@ -748,7 +823,6 @@
 	};
 };
 
-
 &cp1_crypto {
 	status = "disabled";
 };
@@ -766,6 +840,20 @@
 	pinctrl-0 = <&cp1_i2c0_pins>;
 	status = "okay";
 	clock-frequency = <100000>;
+
+	temp-sensor@4f {
+		 compatible = "ti,tmp175";
+		 reg = <0x4f>;
+	};
+
+	// Just a wild-ass guess for the time being.
+	expander1: pca955x@64 {
+		compatible = "nxp,pca9551";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x64>;
+		status = "disabled";
+	};
 };
 
 &cp1_i2c1 {
@@ -773,6 +861,11 @@
 	pinctrl-0 = <&cp1_i2c1_pins>;
 	status = "okay";
 	clock-frequency = <100000>;
+
+	temp-sensor@4f {
+		 compatible = "ti,tmp175";
+		 reg = <0x4f>;
+	};
 };
 
 &cp1_syscon0 {
@@ -788,7 +881,7 @@
 			marvell,function = "i2c1";
 		};
 		cp1_xhci0_vbus_pins: cp1-xhci0-vbus-pins {
-			marvell,pins = "mpp15", "mpp16";
+			marvell,pins = "mpp3", "mpp16";
 			marvell,function = "gpio";
 		};
 		cp1_xhci1_vbus_pins: cp1-xhci1-vbus-pins {
@@ -796,7 +889,15 @@
 			marvell,function = "gpio";
 		};
 		cp1_sfp_wan_pins: sfp-wan-pins {
-			marvell,pins = "mpp48", "mpp49", "mpp50", "mpp51;
+			marvell,pins = "mpp49", "mpp50", "mpp51";
+			marvell,function = "gpio";
+		};
+		cp1_sfp_port2_pins: sfp-port2-pins {
+			marvell,pins = "mpp32", "mpp33";
+			marvell,function = "gpio";
+		};
+		cp1_sfp_port3_pins: sfp-port3-pins {
+			marvell,pins = "mpp40", "mpp41";
 			marvell,function = "gpio";
 		};
 	};
