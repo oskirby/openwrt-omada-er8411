@@ -75,21 +75,6 @@
 		vcc-supply = <&cp0_reg_usb3_vbus1>;
 	};
 
-	cp0_sfp_eth0: sfp-eth0 {
-		compatible = "sff,sfp";
-		i2c-bus = <&cp0_sfpp0_i2c>;
-		los-gpios = <&cp0_module_expander1 11 GPIO_ACTIVE_HIGH>;
-		mod-def0-gpios = <&cp0_module_expander1 10 GPIO_ACTIVE_LOW>;
-		tx-disable-gpios = <&cp0_module_expander1 9 GPIO_ACTIVE_HIGH>;
-		tx-fault-gpios = <&cp0_module_expander1 8 GPIO_ACTIVE_HIGH>;
-		/*
-		 * SFP cages are unconnected on early PCBs because of an the I2C
-		 * lanes not being connected. Prevent the port for being
-		 * unusable by disabling the SFP node.
-		 */
-		status = "disabled";
-	};
-
 	cp1_reg_usb3_vbus0: regulator-6 {
 		compatible = "regulator-fixed";
 		pinctrl-names = "default";
@@ -122,32 +107,15 @@
 		vcc-supply = <&cp1_reg_usb3_vbus1>;
 	};
 
-	cp1_sfp_eth0: sfp-wan {
+	sfp_wan: sfp-wan {
 		compatible = "sff,sfp";
 		i2c-bus = <&cp1_i2c0>;
-		los-gpio = <&cp1_gpio1 18 GPIO_ACTIVE_HIGH>;
-		mod-def0-gpio = <&cp1_gpio1 17 GPIO_ACTIVE_LOW>;
-		tx-disable-gpio = <&cp1_gpio1 16 GPIO_ACTIVE_HIGH>;
+		los-gpio = <&cp1_gpio2 19 GPIO_ACTIVE_HIGH>;
+		mod-def0-gpio = <&cp1_gpio2 18 GPIO_ACTIVE_LOW>;
+		tx-disable-gpio = <&cp1_gpio2 17 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&cp1_sfp_pins>;
+		pinctrl-0 = <&cp1_sfp_wan_pins>;
 		status = "okay";
-	};
-
-	cp1_sfp_eth1: sfp-eth-2 {
-		compatible = "sff,sfp";
-		i2c-bus = <&cp1_i2c0>;
-		los-gpios = <&cp1_gpio1 11 GPIO_ACTIVE_HIGH>;
-		mod-def0-gpios = <&cp1_gpio1 10 GPIO_ACTIVE_LOW>;
-		tx-disable-gpios = <&cp1_gpio1 9 GPIO_ACTIVE_HIGH>;
-		tx-fault-gpios = <&cp1_gpio1 8 GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&cp1_sfp_pins>;
-		/*
-		 * SFP cages are unconnected on early PCBs because of an the I2C
-		 * lanes not being connected. Prevent the port for being
-		 * unusable by disabling the SFP node.
-		 */
-		status = "disabled";
 	};
 
 	// This is just a guess at what the pin does, but it seems this needs to
@@ -173,13 +141,13 @@
 			function = LED_FUNCTION_STATUS;
 		};
 
-		wan-led-amber {
+		wan_amber {
 			label = "amber:wan";
 			color = <LED_COLOR_ID_AMBER>;
 			gpios = <&cp1_gpio1 0 GPIO_ACTIVE_LOW>;
 			function = LED_FUNCTION_WAN;
 		};
-		wan-led-green {
+		wan_green {
 			label = "green:wan";
 			color = <LED_COLOR_ID_GREEN>;
 			gpios = <&cp1_gpio1 11 GPIO_ACTIVE_LOW>;
@@ -769,7 +737,7 @@
 	phy-mode = "10gbase-r";
 	phys = <&cp1_comphy4 0>;
 	managed = "in-band-status";
-	sfp = <&cp1_sfp_eth0>;
+	sfp = <&sfp_wan>;
 };
 
 &cp1_xmdio {
@@ -827,8 +795,8 @@
 			marvell,pins = "mpp13", "mpp14";
 			marvell,function = "gpio";
 		};
-		cp1_sfp_pins: sfp-pins {
-			marvell,pins = "mpp48", "mpp49", "mpp50";
+		cp1_sfp_wan_pins: sfp-wan-pins {
+			marvell,pins = "mpp48", "mpp49", "mpp50", "mpp51;
 			marvell,function = "gpio";
 		};
 	};
