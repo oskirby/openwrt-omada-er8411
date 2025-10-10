@@ -253,6 +253,13 @@
 		#cooling-cells = <2>;
 	};
 
+	gpio-restart {
+		compatible = "gpio-restart";
+		gpios = <&cp0_gpio2 11 GPIO_ACTIVE_LOW
+			 &cp0_gpio2 15 GPIO_ACTIVE_LOW>;
+		priority = <200>;
+	};
+
 	thermal-zones {
 		phy-thermal {
 			polling-delay-passive = <10000>;
